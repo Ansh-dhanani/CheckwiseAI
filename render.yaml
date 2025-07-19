@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: diagnosisai-backend
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python diagnosis/api.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.9.0
+      - key: PORT
+        value: 5000
+    region: ohio  # US East (Ohio) - change to your preferred region
+    branch: main
+    healthCheckPath: /api/health
+    plan: free  # Change to your preferred plan
