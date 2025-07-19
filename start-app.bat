@@ -1,0 +1,6 @@
+@echo off
+echo Starting Flask API...
+start cmd /k "cd diagnosis && python api.py"
+echo Starting React app...
+start cmd /k "cd diagnosis-ui && npm run dev"
+echo Both services started!
