@@ -10,8 +10,10 @@
   to = "/index.html"
   status = 200
 
-[context.production.environment]
-  VITE_API_URL = "https://checkwise-ai.vercel.app/"
-
-[context.deploy-preview.environment]
-  VITE_API_URL = "https://checkwise-ai.vercel.app/"
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-XSS-Protection = "1; mode=block"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"

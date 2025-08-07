@@ -376,12 +376,10 @@ def not_found(error):
 def internal_error(error):
     return jsonify({'error': 'Internal server error', 'success': False}), 500
 
-# Load models at startup for Vercel
-load_models()
-
 if __name__ == '__main__':
     # Try to load models at startup
     logger.info("Starting CheckWise API...")
+    load_models()
     
     # Get port from environment variable or default to 5000
     port = int(os.environ.get('PORT', 5000))
