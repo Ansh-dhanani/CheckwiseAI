@@ -1,6 +1,6 @@
 @echo off
 echo ========================================
-echo Starting DiagnosisAI Application
+echo Starting CheckWise Application
 echo ========================================
 
 :: Get the current directory

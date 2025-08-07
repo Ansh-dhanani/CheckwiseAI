@@ -1,4 +1,4 @@
-# DiagnosisAI
+# CheckWise
 
 AI-powered medical diagnosis system using CBC (Complete Blood Count) test results.
 
@@ -12,7 +12,7 @@ AI-powered medical diagnosis system using CBC (Complete Blood Count) test result
 ## Project Structure
 
 ```
-DiagnosisAI/
+CheckWise/
 ├── backend/                 # Flask API server
 │   ├── api.py              # Main API endpoints
 │   ├── file_processor.py   # File processing logic

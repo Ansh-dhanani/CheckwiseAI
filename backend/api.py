@@ -247,7 +247,7 @@ def health_check():
 def index():
     """Root endpoint with API information"""
     return jsonify({
-        'message': 'DiagnosisAI API v2.0.0',
+        'message': 'CheckWise API v2.0.0',
         'status': 'running',
         'endpoints': {
             'health': '/api/health',
@@ -378,7 +378,7 @@ def internal_error(error):
 
 if __name__ == '__main__':
     # Try to load models at startup
-    logger.info("Starting DiagnosisAI API...")
+    logger.info("Starting CheckWise API...")
     load_models()
     
     # Get port from environment variable or default to 5000
