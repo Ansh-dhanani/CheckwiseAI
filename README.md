@@ -1,5 +1,9 @@
 # CheckWise - AI-Powered CBC Analysis System
 
+---
+
+###Live : https://check-wise.netlify.app/
+
 **CheckWise** is an intelligent medical diagnosis system that analyzes Complete Blood Count (CBC) test results to predict potential diseases using machine learning. The system combines advanced file processing, parameter extraction, and AI-powered analysis to provide healthcare insights.
 
 ---
