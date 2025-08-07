@@ -11,7 +11,7 @@
   status = 200
 
 [context.production.environment]
-  VITE_API_URL = "https://checkwise-api.vercel.app"
+  VITE_API_URL = "https://checkwise-ai.vercel.app/"
 
 [context.deploy-preview.environment]
-  VITE_API_URL = "https://checkwise-api.vercel.app"
+  VITE_API_URL = "https://checkwise-ai.vercel.app/"
