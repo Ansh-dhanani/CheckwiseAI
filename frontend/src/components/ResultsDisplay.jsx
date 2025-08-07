@@ -18,7 +18,7 @@ const ResultsDisplay = ({ results }) => {
     return null;
   }
   
-  const { prediction, top_predictions } = results;
+  const { prediction, top_predictions, missing_parameters, note } = results;
   
   // Prepare chart data
   const chartData = {
@@ -53,8 +53,29 @@ const ResultsDisplay = ({ results }) => {
         <h3 className="text-xl font-semibold mb-2 text-gray-700">Primary Diagnosis</h3>
         <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
           <p className="text-2xl font-bold text-blue-700">{prediction}</p>
+          {note && (
+            <p className="text-sm text-gray-600 mt-2">{note}</p>
+          )}
         </div>
       </div>
+      
+      {missing_parameters && missing_parameters.length > 0 && (
+        <div className="mb-6">
+          <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+            <h4 className="font-semibold text-yellow-800 mb-2">Missing Parameters</h4>
+            <p className="text-sm text-yellow-700">
+              The following parameters were not found in the uploaded file and default values were used:
+            </p>
+            <div className="flex flex-wrap gap-2 mt-2">
+              {missing_parameters.map((param, index) => (
+                <span key={index} className="bg-yellow-200 text-yellow-800 px-2 py-1 rounded text-xs">
+                  {param}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>

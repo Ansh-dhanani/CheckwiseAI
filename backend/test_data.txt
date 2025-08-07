@@ -1,0 +1,14 @@
+Complete Blood Count Report
+
+Patient: John Doe
+Age: 35
+Gender: Male
+
+WBC: 6.5
+RBC: 4.8
+HGB: 14.2
+HCT: 42.0
+PLT: 250
+LY%: 30
+NE%: 60
+MO%: 8
