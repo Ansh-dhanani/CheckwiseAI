@@ -1,8 +1,5 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-import joblib
-import numpy as np
-import pandas as pd
 import os
 import sys
 import logging
@@ -12,6 +9,20 @@ from datetime import datetime
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Import ML libraries with error handling
+try:
+    import joblib
+    import numpy as np
+    import pandas as pd
+    ML_LIBRARIES_AVAILABLE = True
+    logger.info("ML libraries imported successfully")
+except ImportError as e:
+    ML_LIBRARIES_AVAILABLE = False
+    logger.error(f"Failed to import ML libraries: {e}")
+    joblib = None
+    np = None
+    pd = None
 
 app = Flask(__name__)
 CORS(app)
@@ -96,6 +107,12 @@ def convert_to_default_unit(parameter, value, from_unit):
 def load_models():
     """Load ML models with proper error handling and flexible path detection"""
     global model, label_encoder, model_load_status
+    
+    # Check if ML libraries are available
+    if not ML_LIBRARIES_AVAILABLE:
+        model_load_status = {'status': 'error', 'message': 'ML libraries (numpy, pandas, scikit-learn) not available'}
+        logger.error("ML libraries not available")
+        return False
     
     try:
         # Try multiple possible locations for model files
@@ -429,7 +446,8 @@ def health_check():
         'system': {
             'python_version': sys.version.split()[0],
             'flask_running': True,
-            'cors_enabled': True
+            'cors_enabled': True,
+            'ml_libraries_available': ML_LIBRARIES_AVAILABLE
         },
         'features': {
             'manual_input': True,
