@@ -82,8 +82,8 @@ Write-Host "Backend:  https://diagnosisai.onrender.com" -ForegroundColor White
 Write-Host "Health:   https://diagnosisai.onrender.com/api/health" -ForegroundColor White
 
 Write-Host "`n📋 Next Steps:" -ForegroundColor Yellow
-Write-Host "1. Fix any missing files (❌) above" -ForegroundColor White
-Write-Host "2. Update requirements.txt with exact versions" -ForegroundColor White  
+Write-Host "1. Fix any missing files above" -ForegroundColor White
+Write-Host "2. Update requirements.txt with exact versions" -ForegroundColor White
 Write-Host "3. Commit and push changes to trigger redeployment" -ForegroundColor White
 Write-Host "4. Wait 2-3 minutes for deployment to complete" -ForegroundColor White
 Write-Host "5. Test predictions on frontend" -ForegroundColor White
