@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: checkwise-api
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn api:app --bind=0.0.0.0:$PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.8.10
+      - key: PYTHONPATH
+        value: .
