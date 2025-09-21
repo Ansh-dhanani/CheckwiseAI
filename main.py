@@ -1,19 +1,21 @@
 #!/usr/bin/env python3
 """
-CheckWise AI Backend Entry Point
-This file serves as the main entry point for deployment platforms
+CheckwiseAI - Main Entry Point
+Deployment-ready Flask application for AI-powered CBC disease prediction
 """
-
 import os
 import sys
 
-# Add the backend directory to Python path
-backend_dir = os.path.join(os.path.dirname(__file__), 'backend')
-sys.path.insert(0, backend_dir)
+# Add backend directory to Python path for imports
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'backend'))
 
-# Import the Flask app from the backend directory
+# Import the Flask application
 from api import app
 
-if __name__ == '__main__':
+# WSGI entry point for deployment platforms
+application = app
+
+if __name__ == "__main__":
+    # For local development
     port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port)
+    app.run(host='0.0.0.0', port=port, debug=False)
