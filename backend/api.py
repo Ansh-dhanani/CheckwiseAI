@@ -94,26 +94,42 @@ def convert_to_default_unit(parameter, value, from_unit):
     return value
 
 def load_models():
-    """Load ML models with proper error handling"""
+    """Load ML models with proper error handling and flexible path detection"""
     global model, label_encoder, model_load_status
     
     try:
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        model_path = os.path.join(current_dir, 'cbc_disease_model.joblib')
-        encoder_path = os.path.join(current_dir, 'disease_label_encoder.joblib')
+        # Try multiple possible locations for model files
+        possible_locations = [
+            # Same directory as api.py (backend/)
+            os.path.dirname(os.path.abspath(__file__)),
+            # Root directory (for main.py deployment)
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'),
+            # Current working directory
+            os.getcwd()
+        ]
         
-        logger.info(f"Loading models from: {current_dir}")
+        model_found = False
+        for location in possible_locations:
+            model_path = os.path.join(location, 'cbc_disease_model.joblib')
+            encoder_path = os.path.join(location, 'disease_label_encoder.joblib')
+            
+            logger.info(f"Checking models at: {location}")
+            
+            if os.path.exists(model_path) and os.path.exists(encoder_path):
+                logger.info(f"Found models at: {location}")
+                model = joblib.load(model_path)
+                label_encoder = joblib.load(encoder_path)
+                model_load_status = {'status': 'success', 'message': f'Models loaded from {location}'}
+                logger.info("Models loaded successfully")
+                model_found = True
+                break
         
-        if os.path.exists(model_path) and os.path.exists(encoder_path):
-            model = joblib.load(model_path)
-            label_encoder = joblib.load(encoder_path)
-            model_load_status = {'status': 'success', 'message': 'Models loaded successfully'}
-            logger.info("Models loaded successfully")
-            return True
-        else:
-            model_load_status = {'status': 'error', 'message': 'Model files not found'}
+        if not model_found:
+            model_load_status = {'status': 'error', 'message': 'Model files not found in any expected location'}
             logger.error("Model files not found")
             return False
+        
+        return True
             
     except Exception as e:
         error_msg = f"Error loading models: {str(e)}"
