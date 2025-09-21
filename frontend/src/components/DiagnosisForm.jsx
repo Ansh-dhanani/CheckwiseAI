@@ -41,6 +41,7 @@ const DiagnosisForm = ({ onResult }) => {
         setParameters(response.data);
       } catch (err) {
         console.error('Failed to fetch parameters:', err);
+        setError(`Failed to load parameter information from ${import.meta.env.VITE_API_URL || 'http://localhost:5000'}. Please check if the backend is running.`);
       }
     };
     
@@ -49,6 +50,33 @@ const DiagnosisForm = ({ onResult }) => {
   
   const handleChange = (e) => {
     const { name, value } = e.target;
+    
+    // Real-time validation
+    if (value !== '' && value !== null) {
+      const numValue = parseFloat(value);
+      
+      // Range validation
+      if (name === 'Gender' && (numValue < 0 || numValue > 1 || !Number.isInteger(numValue))) {
+        setError(`Gender must be 0 (Female) or 1 (Male)`);
+        return;
+      }
+      
+      if (name === 'Age' && (numValue < 0 || numValue > 120)) {
+        setError(`Age must be between 0 and 120 years`);
+        return;
+      }
+      
+      if (name.includes('%') && (numValue < 0 || numValue > 100)) {
+        setError(`${name} must be between 0 and 100%`);
+        return;
+      }
+      
+      if (numValue < 0) {
+        setError(`${name} cannot be negative`);
+        return;
+      }
+    }
+    
     setFormData({
       ...formData,
       [name]: value === '' ? null : value
@@ -56,7 +84,9 @@ const DiagnosisForm = ({ onResult }) => {
     
     // Clear previous validation results when form changes
     setValidationResults(null);
-    setError('');
+    if (!value || value === '') {
+      setError('');
+    }
   };
   
   const validateInput = async () => {
@@ -73,6 +103,12 @@ const DiagnosisForm = ({ onResult }) => {
       return false;
     } catch (err) {
       console.error('Validation failed:', err);
+      
+      if (err.code === 'ERR_NETWORK') {
+        setError(`Cannot connect to validation service. Backend may be offline at ${import.meta.env.VITE_API_URL || 'http://localhost:5000'}`);
+      } else {
+        setError(`Validation error: ${err.response?.data?.error || err.message || 'Validation service unavailable'}`);
+      }
       return false;
     }
   };
@@ -140,7 +176,17 @@ const DiagnosisForm = ({ onResult }) => {
         setError(response.data.error || 'Prediction failed');
       }
     } catch (err) {
-      setError(err.response?.data?.error || 'An error occurred during prediction');
+      console.error('Prediction error:', err);
+      
+      if (err.code === 'ERR_NETWORK') {
+        setError(`Unable to connect to the AI service. Please check if the backend is running at ${import.meta.env.VITE_API_URL || 'http://localhost:5000'}`);
+      } else if (err.response?.status === 400) {
+        setError(`Input validation error: ${err.response.data?.error || 'Invalid input parameters'}`);
+      } else if (err.response?.status === 500) {
+        setError(`Server error: ${err.response.data?.error || 'Internal server error occurred'}`);
+      } else {
+        setError(`Prediction failed: ${err.response?.data?.error || err.message || 'Unknown error occurred'}`);
+      }
     } finally {
       setLoading(false);
     }
@@ -224,6 +270,9 @@ const DiagnosisForm = ({ onResult }) => {
                     value={formData[key] || ''}
                     onChange={handleChange}
                     placeholder="Enter value"
+                    required
+                    min={key === 'Gender' ? '0' : '0'}
+                    max={key === 'Gender' ? '1' : undefined}
                     className={`flex-1 px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                       getParameterStatus(key, formData[key]) === 'empty' 
                         ? 'border-red-300 bg-red-50' 
@@ -277,7 +326,13 @@ const DiagnosisForm = ({ onResult }) => {
                     name={key}
                     value={formData[key] || ''}
                     onChange={handleChange}
-                    placeholder="Enter value"
+                    placeholder="Enter value (optional)"
+                    min="0"
+                    max={
+                      key.includes('%') ? '100' : 
+                      key === 'Age' ? '120' :
+                      key === 'Gender' ? '1' : undefined
+                    }
                     className={`flex-1 px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                       getParameterStatus(key, formData[key]) === 'warning'
                         ? 'border-orange-300 bg-orange-50'
