@@ -8,7 +8,6 @@ import sys
 import logging
 import traceback
 from datetime import datetime
-from file_processor import FileProcessor
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -21,7 +20,78 @@ CORS(app)
 model = None
 label_encoder = None
 model_load_status = {}
-current_extracted_data = None
+
+# Unit conversion functions
+def convert_to_default_unit(parameter, value, from_unit):
+    """Convert parameter value from given unit to default unit"""
+    conversion_factors = {
+        'HGB': {
+            'g/L': 0.1,  # g/L to g/dL
+            'mmol/L': 1.61  # mmol/L to g/dL (approximate)
+        },
+        'MCHC': {
+            'g/L': 0.1,  # g/L to g/dL
+            'mmol/L': 1.61  # mmol/L to g/dL (approximate)
+        },
+        'WBC': {
+            'K/μL': 1.0,  # K/μL is same as 10³/μL
+            'cells/μL': 0.001,  # cells/μL to 10³/μL
+            '10⁹/L': 1.0  # 10⁹/L is same as 10³/μL
+        },
+        'RBC': {
+            'M/μL': 1.0,  # M/μL is same as 10⁶/μL
+            'cells/μL': 0.000001,  # cells/μL to 10⁶/μL
+            '10¹²/L': 1.0  # 10¹²/L is same as 10⁶/μL
+        },
+        'PLT': {
+            'K/μL': 1.0,  # K/μL is same as 10³/μL
+            'cells/μL': 0.001,  # cells/μL to 10³/μL
+            '10⁹/L': 1.0  # 10⁹/L is same as 10³/μL
+        },
+        'LY#': {
+            'K/μL': 1.0,
+            'cells/μL': 0.001,
+            '10⁹/L': 1.0
+        },
+        'MO#': {
+            'K/μL': 1.0,
+            'cells/μL': 0.001,
+            '10⁹/L': 1.0
+        },
+        'NE#': {
+            'K/μL': 1.0,
+            'cells/μL': 0.001,
+            '10⁹/L': 1.0
+        },
+        'EO#': {
+            'K/μL': 1.0,
+            'cells/μL': 0.001,
+            '10⁹/L': 1.0
+        },
+        'BA#': {
+            'K/μL': 1.0,
+            'cells/μL': 0.001,
+            '10⁹/L': 1.0
+        },
+        'HCT': {
+            'L/L': 100.0,  # L/L to %
+            'fraction': 100.0  # fraction to %
+        },
+        'Age': {
+            'months': 1/12,  # months to years
+            'days': 1/365.25  # days to years
+        },
+        # Percentage conversions
+        'LY%': {'fraction': 100.0},
+        'MO%': {'fraction': 100.0},
+        'NE%': {'fraction': 100.0},
+        'EO%': {'fraction': 100.0},
+        'BA%': {'fraction': 100.0}
+    }
+    
+    if parameter in conversion_factors and from_unit in conversion_factors[parameter]:
+        return value * conversion_factors[parameter][from_unit]
+    return value
 
 def load_models():
     """Load ML models with proper error handling"""
@@ -53,11 +123,11 @@ def load_models():
 
 @app.route('/api/predict', methods=['POST'])
 def predict():
-    """Enhanced prediction endpoint with comprehensive validation"""
+    """Enhanced prediction endpoint with comprehensive validation and improved error handling"""
     if model is None or label_encoder is None:
         if not load_models():
             return jsonify({
-                'error': 'Models not available',
+                'error': 'ML models not available. Please check server configuration.',
                 'success': False,
                 'model_status': model_load_status
             }), 500
@@ -65,98 +135,59 @@ def predict():
     try:
         data = request.json
         if not data:
-            return jsonify({'error': 'No data provided', 'success': False}), 400
+            return jsonify({
+                'error': 'No data provided. Please send CBC parameters in JSON format.',
+                'success': False
+            }), 400
         
-        # Extract features in the correct order
-        features = [
-            'WBC', 'LY%', 'MO%', 'NE%', 'EO%', 'BA%', 'LY#', 'MO#', 'NE#', 'EO#', 'BA#',
-            'RBC', 'HGB', 'HCT', 'MCV', 'MCHC', 'MCH', 'RDW', 'PLT', 'MPV', 'Age', 'Gender'
-        ]
+        # Validate and process input data
+        validation_result = validate_and_process_input(data)
+        if validation_result.get('error'):
+            return jsonify(validation_result), 400
         
-        # Only use defaults for critical missing parameters
-        critical_params = ['WBC', 'RBC', 'HGB', 'HCT', 'PLT', 'Age', 'Gender']
-        defaults = {
-            'WBC': 7.5, 'RBC': 4.8, 'HGB': 14, 'HCT': 42, 'PLT': 250, 'Age': 35, 'Gender': 1
-        }
+        input_data = validation_result['input_data']
+        data_quality = validation_result['data_quality']
         
-        # Create input array with validation
-        input_data = []
-        missing_params = []
-        invalid_params = []
-        warnings = []
-        
-        for feature in features:
-            if feature not in data or data[feature] is None or data[feature] == '':
-                if feature in critical_params:
-                    input_data.append(defaults[feature])
-                else:
-                    input_data.append(0)
-                missing_params.append(feature)
-            else:
-                try:
-                    value = float(data[feature])
-                    if validate_parameter_range(feature, value):
-                        input_data.append(value)
-                    else:
-                        input_data.append(value)
-                        invalid_params.append(f"{feature}={value}")
-                        warnings.append(f"WARNING: {feature}={value} is outside acceptable range - prediction may be inaccurate")
-                except (ValueError, TypeError):
-                    if feature in critical_params:
-                        input_data.append(defaults[feature])
-                    else:
-                        input_data.append(0)
-                    invalid_params.append(f"{feature}={data[feature]}")
-        
-        # Calculate data completeness
-        completeness = ((len(features) - len(missing_params)) / len(features)) * 100
-        
-        # Make prediction
-        input_array = np.array([input_data])
-        prediction_encoded = model.predict(input_array)[0]
-        prediction = label_encoder.inverse_transform([prediction_encoded])[0]
-        
-        # Get prediction probabilities
-        probabilities = model.predict_proba(input_array)[0]
-        
-        # Get top predictions with probabilities
-        top_indices = np.argsort(probabilities)[::-1][:5]
-        top_predictions = []
-        
-        for idx in top_indices:
-            prob = float(probabilities[idx])
-            if prob > 0.01:  # Only include predictions with >1% probability
-                disease = label_encoder.inverse_transform([idx])[0]
-                top_predictions.append({
-                    'disease': disease,
-                    'probability': prob,
-                    'confidence_level': get_confidence_level(prob)
-                })
-        
-        # Generate interpretation note
-        interpretation = generate_interpretation_note(missing_params, warnings, completeness)
-        
-        return jsonify({
-            'prediction': prediction,
-            'top_predictions': top_predictions,
-            'data_quality': {
-                'completeness_percentage': round(completeness, 1),
-                'missing_parameters': missing_params,
-                'invalid_parameters': invalid_params,
-                'warnings': warnings,
-                'total_parameters': len(features),
-                'provided_parameters': len(features) - len(missing_params)
-            },
-            'interpretation': interpretation,
-            'success': True,
-            'timestamp': datetime.now().isoformat()
-        })
+        # Make prediction with error handling
+        try:
+            input_array = np.array([input_data])
+            prediction_encoded = model.predict(input_array)[0]
+            prediction = label_encoder.inverse_transform([prediction_encoded])[0]
+            
+            # Get prediction probabilities
+            probabilities = model.predict_proba(input_array)[0]
+            
+            # Get top predictions with probabilities
+            top_predictions = get_top_predictions(probabilities, label_encoder, min_probability=0.01)
+            
+            # Generate comprehensive analysis
+            analysis = generate_comprehensive_analysis(data_quality, top_predictions[0]['probability'] if top_predictions else 0)
+            
+            return jsonify({
+                'prediction': prediction,
+                'top_predictions': top_predictions,
+                'data_quality': data_quality,
+                'analysis': analysis,
+                'success': True,
+                'timestamp': datetime.now().isoformat(),
+                'model_version': '2.1.0'
+            })
+            
+        except Exception as pred_error:
+            logger.error(f"Model prediction failed: {str(pred_error)}")
+            return jsonify({
+                'error': 'Prediction model encountered an error. Please check your input data.',
+                'success': False
+            }), 500
         
     except Exception as e:
-        error_msg = f"Prediction error: {str(e)}"
+        error_msg = f"Prediction endpoint error: {str(e)}"
         logger.error(error_msg)
         logger.error(traceback.format_exc())
-        return jsonify({'error': error_msg, 'success': False}), 500
+        return jsonify({
+            'error': 'Internal server error occurred during prediction.',
+            'success': False
+        }), 500
 
 def validate_parameter_range(param, value):
     ranges = {
@@ -186,6 +217,138 @@ def get_confidence_level(probability):
         return "Low"
     else:
         return "Very Low"
+
+def validate_and_process_input(data):
+    """Validate and process input data with enhanced error handling"""
+    features = [
+        'WBC', 'LY%', 'MO%', 'NE%', 'EO%', 'BA%', 'LY#', 'MO#', 'NE#', 'EO#', 'BA#',
+        'RBC', 'HGB', 'HCT', 'MCV', 'MCHC', 'MCH', 'RDW', 'PLT', 'MPV', 'Age', 'Gender'
+    ]
+    
+    critical_params = ['WBC', 'RBC', 'HGB', 'HCT', 'PLT', 'Age', 'Gender']
+    defaults = {
+        'WBC': 7.5, 'RBC': 4.8, 'HGB': 14, 'HCT': 42, 'PLT': 250, 'Age': 35, 'Gender': 1
+    }
+    
+    input_data = []
+    missing_params = []
+    invalid_params = []
+    warnings = []
+    out_of_range_params = []
+    
+    for feature in features:
+        if feature not in data or data[feature] is None or data[feature] == '':
+            if feature in critical_params:
+                input_data.append(defaults[feature])
+                missing_params.append(feature)
+            else:
+                input_data.append(0)  # Use 0 for non-critical missing parameters
+                missing_params.append(feature)
+        else:
+            try:
+                value = float(data[feature])
+                
+                # Validate range
+                if not validate_parameter_range(feature, value):
+                    out_of_range_params.append(f"{feature}={value}")
+                    warnings.append(f"WARNING: {feature}={value} is outside normal range")
+                
+                input_data.append(value)
+                
+            except (ValueError, TypeError):
+                if feature in critical_params:
+                    input_data.append(defaults[feature])
+                    missing_params.append(feature)
+                else:
+                    input_data.append(0)
+                    missing_params.append(feature)
+                invalid_params.append(f"{feature}={data[feature]}")
+    
+    # Calculate data quality metrics
+    completeness = ((len(features) - len(missing_params)) / len(features)) * 100
+    
+    # Check if we have enough data to make a reliable prediction
+    critical_missing = [p for p in missing_params if p in critical_params]
+    if len(critical_missing) > 3:  # Too many critical parameters missing
+        return {
+            'error': f'Too many critical parameters missing: {", ".join(critical_missing)}. Please provide at least basic CBC values.',
+            'success': False
+        }
+    
+    data_quality = {
+        'completeness_percentage': round(completeness, 1),
+        'missing_parameters': missing_params,
+        'invalid_parameters': invalid_params,
+        'out_of_range_parameters': out_of_range_params,
+        'warnings': warnings,
+        'total_parameters': len(features),
+        'provided_parameters': len(features) - len(missing_params),
+        'critical_missing': critical_missing
+    }
+    
+    return {
+        'input_data': input_data,
+        'data_quality': data_quality,
+        'success': True
+    }
+
+def get_top_predictions(probabilities, label_encoder, min_probability=0.01, max_predictions=5):
+    """Get top predictions with probabilities"""
+    top_indices = np.argsort(probabilities)[::-1][:max_predictions]
+    top_predictions = []
+    
+    for idx in top_indices:
+        prob = float(probabilities[idx])
+        if prob >= min_probability:
+            disease = label_encoder.inverse_transform([idx])[0]
+            top_predictions.append({
+                'disease': disease,
+                'probability': prob,
+                'percentage': round(prob * 100, 2),
+                'confidence_level': get_confidence_level(prob)
+            })
+    
+    return top_predictions
+
+def generate_comprehensive_analysis(data_quality, primary_confidence):
+    """Generate comprehensive analysis based on data quality and prediction confidence"""
+    analysis = {
+        'reliability': 'Unknown',
+        'recommendation': '',
+        'notes': []
+    }
+    
+    # Assess reliability
+    completeness = data_quality['completeness_percentage']
+    critical_missing = len(data_quality['critical_missing'])
+    warnings = len(data_quality['warnings'])
+    
+    if completeness >= 95 and critical_missing == 0 and warnings == 0:
+        analysis['reliability'] = 'Excellent'
+        analysis['recommendation'] = 'High confidence prediction. Results are reliable for clinical reference.'
+    elif completeness >= 80 and critical_missing <= 1 and warnings <= 2:
+        analysis['reliability'] = 'Good'
+        analysis['recommendation'] = 'Good quality prediction. Minor data gaps present but results are trustworthy.'
+    elif completeness >= 60 and critical_missing <= 2:
+        analysis['reliability'] = 'Fair'
+        analysis['recommendation'] = 'Fair prediction quality. Some important parameters missing. Use with caution.'
+    else:
+        analysis['reliability'] = 'Poor'
+        analysis['recommendation'] = 'Low confidence prediction. Too many missing or invalid parameters. Obtain complete CBC results.'
+    
+    # Add specific notes
+    if critical_missing > 0:
+        analysis['notes'].append(f"Missing {critical_missing} critical parameter(s)")
+    
+    if warnings > 0:
+        analysis['notes'].append(f"{warnings} parameter(s) outside normal range")
+    
+    if primary_confidence < 0.3:
+        analysis['notes'].append("Low prediction confidence - multiple conditions possible")
+    elif primary_confidence > 0.8:
+        analysis['notes'].append("High prediction confidence")
+    
+    return analysis
 
 def generate_interpretation_note(missing_params, warnings, completeness):
     """Generate interpretation note based on data quality"""
@@ -234,34 +397,58 @@ def get_diseases():
 
 @app.route('/api/health', methods=['GET'])
 def health_check():
-    """Comprehensive health check endpoint"""
-    return jsonify({
-        'status': 'healthy',
+    """Comprehensive health check endpoint with detailed system information"""
+    models_loaded = model is not None and label_encoder is not None
+    
+    health_data = {
+        'status': 'healthy' if models_loaded else 'degraded',
         'timestamp': datetime.now().isoformat(),
-        'models_loaded': model is not None and label_encoder is not None,
-        'model_status': model_load_status,
-        'version': '2.0.0'
-    })
+        'version': '2.1.0',
+        'models': {
+            'disease_model_loaded': model is not None,
+            'label_encoder_loaded': label_encoder is not None,
+            'total_diseases': len(label_encoder.classes_) if label_encoder is not None else 0,
+            'model_status': model_load_status
+        },
+        'system': {
+            'python_version': sys.version.split()[0],
+            'flask_running': True,
+            'cors_enabled': True
+        },
+        'features': {
+            'manual_input': True,
+            'file_upload': False,  # Removed
+            'ocr_processing': False,  # Removed
+            'prediction_confidence': True,
+            'data_validation': True
+        }
+    }
+    
+    # Add warnings if models not loaded
+    if not models_loaded:
+        health_data['warnings'] = ['ML models not loaded - predictions unavailable']
+    
+    return jsonify(health_data)
 
 @app.route('/', methods=['GET'])
 def index():
     """Root endpoint with API information"""
     return jsonify({
-        'message': 'CheckWise API v2.0.0',
+        'message': 'CheckWise API v2.1.0 - Simplified',
         'status': 'running',
         'endpoints': {
             'health': '/api/health',
             'predict': '/api/predict (POST)',
             'diseases': '/api/diseases',
-            'upload': '/api/upload (POST)',
             'parameters': '/api/parameters'
         },
-        'models_loaded': model is not None and label_encoder is not None
+        'models_loaded': model is not None and label_encoder is not None,
+        'description': 'Manual CBC parameter input for disease prediction'
     })
 
 @app.route('/api/parameters', methods=['GET'])
 def get_parameters():
-    """Get information about required parameters"""
+    """Get comprehensive information about CBC parameters"""
     parameters = {
         'required': [
             'WBC', 'LY%', 'MO%', 'NE%', 'EO%', 'BA%', 'LY#', 'MO#', 'NE#', 'EO#', 'BA#',
@@ -269,104 +456,127 @@ def get_parameters():
         ],
         'critical': ['WBC', 'RBC', 'HGB', 'HCT', 'PLT', 'Age', 'Gender'],
         'units': {
-            'WBC': '10³/μL', 'RBC': '10⁶/μL', 'HGB': 'g/dL', 'HCT': '%',
-            'MCV': 'fL', 'MCH': 'pg', 'MCHC': 'g/dL', 'RDW': '%',
-            'PLT': '10³/μL', 'MPV': 'fL', 'Age': 'years',
-            'LY%': '%', 'MO%': '%', 'NE%': '%', 'EO%': '%', 'BA%': '%',
-            'LY#': '10³/μL', 'MO#': '10³/μL', 'NE#': '10³/μL', 'EO#': '10³/μL', 'BA#': '10³/μL'
+            'WBC': {'default': '10³/μL', 'alternatives': ['K/μL', 'cells/μL', '10⁹/L']},
+            'RBC': {'default': '10⁶/μL', 'alternatives': ['M/μL', 'cells/μL', '10¹²/L']},
+            'HGB': {'default': 'g/dL', 'alternatives': ['g/L', 'mmol/L']},
+            'HCT': {'default': '%', 'alternatives': ['L/L', 'fraction']},
+            'MCV': {'default': 'fL', 'alternatives': ['μm³']},
+            'MCH': {'default': 'pg', 'alternatives': ['fmol']},
+            'MCHC': {'default': 'g/dL', 'alternatives': ['g/L', 'mmol/L']},
+            'RDW': {'default': '%', 'alternatives': ['CV%']},
+            'PLT': {'default': '10³/μL', 'alternatives': ['K/μL', 'cells/μL', '10⁹/L']},
+            'MPV': {'default': 'fL', 'alternatives': ['μm³']},
+            'Age': {'default': 'years', 'alternatives': ['months', 'days']},
+            'LY%': {'default': '%', 'alternatives': ['fraction']},
+            'MO%': {'default': '%', 'alternatives': ['fraction']},
+            'NE%': {'default': '%', 'alternatives': ['fraction']},
+            'EO%': {'default': '%', 'alternatives': ['fraction']},
+            'BA%': {'default': '%', 'alternatives': ['fraction']},
+            'LY#': {'default': '10³/μL', 'alternatives': ['K/μL', 'cells/μL', '10⁹/L']},
+            'MO#': {'default': '10³/μL', 'alternatives': ['K/μL', 'cells/μL', '10⁹/L']},
+            'NE#': {'default': '10³/μL', 'alternatives': ['K/μL', 'cells/μL', '10⁹/L']},
+            'EO#': {'default': '10³/μL', 'alternatives': ['K/μL', 'cells/μL', '10⁹/L']},
+            'BA#': {'default': '10³/μL', 'alternatives': ['K/μL', 'cells/μL', '10⁹/L']}
+        },
+        'normal_ranges': {
+            'WBC': {'min': 4.0, 'max': 11.0, 'unit': '10³/μL'},
+            'RBC': {'min': 4.2, 'max': 5.4, 'unit': '10⁶/μL'},
+            'HGB': {'min': 12.0, 'max': 16.0, 'unit': 'g/dL'},
+            'HCT': {'min': 36.0, 'max': 48.0, 'unit': '%'},
+            'MCV': {'min': 80.0, 'max': 100.0, 'unit': 'fL'},
+            'MCH': {'min': 27.0, 'max': 33.0, 'unit': 'pg'},
+            'MCHC': {'min': 32.0, 'max': 36.0, 'unit': 'g/dL'},
+            'RDW': {'min': 11.5, 'max': 14.5, 'unit': '%'},
+            'PLT': {'min': 150.0, 'max': 450.0, 'unit': '10³/μL'},
+            'MPV': {'min': 7.5, 'max': 11.5, 'unit': 'fL'},
+            'LY%': {'min': 20.0, 'max': 40.0, 'unit': '%'},
+            'MO%': {'min': 2.0, 'max': 8.0, 'unit': '%'},
+            'NE%': {'min': 50.0, 'max': 70.0, 'unit': '%'},
+            'EO%': {'min': 1.0, 'max': 4.0, 'unit': '%'},
+            'BA%': {'min': 0.0, 'max': 1.0, 'unit': '%'},
+            'LY#': {'min': 1.2, 'max': 3.4, 'unit': '10³/μL'},
+            'MO#': {'min': 0.1, 'max': 0.9, 'unit': '10³/μL'},
+            'NE#': {'min': 1.8, 'max': 7.7, 'unit': '10³/μL'},
+            'EO#': {'min': 0.05, 'max': 0.5, 'unit': '10³/μL'},
+            'BA#': {'min': 0.0, 'max': 0.2, 'unit': '10³/μL'},
+            'Age': {'min': 0.0, 'max': 120.0, 'unit': 'years'},
+            'Gender': {'min': 0, 'max': 1, 'description': '0=Female, 1=Male'}
+        },
+        'descriptions': {
+            'WBC': 'White Blood Cell Count - measures infection-fighting cells',
+            'RBC': 'Red Blood Cell Count - measures oxygen-carrying cells',
+            'HGB': 'Hemoglobin - protein that carries oxygen',
+            'HCT': 'Hematocrit - percentage of blood volume made up by RBCs',
+            'PLT': 'Platelet Count - measures blood clotting cells',
+            'Age': 'Patient age in years',
+            'Gender': 'Patient gender (0=Female, 1=Male)'
         }
     }
     return jsonify(parameters)
 
-@app.route('/api/upload', methods=['POST', 'OPTIONS'])
-def upload_file():
-    """Enhanced file upload and processing endpoint"""
-    if request.method == 'OPTIONS':
-        return '', 200
-    
-    # Reset any previous data on new file upload
-    global current_extracted_data
-    current_extracted_data = None
-    
+@app.route('/api/convert', methods=['POST'])
+def convert_units():
+    """Convert CBC parameter values between different units"""
     try:
-        # Validate file upload
-        if 'file' not in request.files:
-            return jsonify({'error': 'No file uploaded', 'success': False}), 400
+        data = request.json
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
         
-        file = request.files['file']
-        if not file.filename:
-            return jsonify({'error': 'No file selected', 'success': False}), 400
+        parameter = data.get('parameter')
+        value = data.get('value')
+        from_unit = data.get('from_unit')
+        to_unit = data.get('to_unit', 'default')
         
-        logger.info(f"Processing file: {file.filename}")
+        if not all([parameter, value is not None, from_unit]):
+            return jsonify({'error': 'Missing required fields: parameter, value, from_unit'}), 400
         
-        # Check file size (limit to 10MB)
-        file.seek(0, 2)
-        file_size = file.tell()
-        file.seek(0)
+        try:
+            value = float(value)
+        except ValueError:
+            return jsonify({'error': 'Value must be a number'}), 400
         
-        if file_size > 10 * 1024 * 1024:
-            return jsonify({'error': 'File too large (max 10MB)', 'success': False}), 400
-        
-        if file_size == 0:
-            return jsonify({'error': 'Empty file', 'success': False}), 400
-        
-        # Read file content
-        file_content = file.read()
-        if not file_content:
-            return jsonify({'error': 'Failed to read file content', 'success': False}), 400
-        
-        # Get patient_id if specified
-        patient_id = request.form.get('patient_id')
-        if patient_id is not None:
-            try:
-                patient_id = int(patient_id)
-            except ValueError:
-                return jsonify({'error': 'Invalid patient_id', 'success': False}), 400
-        
-        # Process the file
-        processor = FileProcessor()
-        file_extension = file.filename.split('.')[-1].lower() if '.' in file.filename else ''
-        
-        if not file_extension:
-            return jsonify({'error': 'File type could not be determined', 'success': False}), 400
-        
-        extracted_data = processor.process_file(file_content, file_extension, patient_id)
-        
-        if isinstance(extracted_data, dict) and 'error' in extracted_data:
-            logger.error(f"Processing error: {extracted_data['error']}")
-            return jsonify(extracted_data), 400
-        
-        # Handle multiple patients
-        if isinstance(extracted_data, dict) and extracted_data.get('multiple_patients'):
-            return jsonify({
-                **extracted_data,
-                'success': True
-            })
-        
-        # Clean and validate extracted data
-        cleaned_data = {}
-        for key, value in extracted_data.items():
-            if key.startswith('_'):  # Skip metadata
-                continue
-            if value is not None and str(value).strip() != '':
-                cleaned_data[key] = value
-        
-        logger.info(f"Successfully extracted {len(cleaned_data)} parameters")
+        # Convert to default unit first
+        converted_value = convert_to_default_unit(parameter, value, from_unit)
         
         return jsonify({
-            'extracted_data': cleaned_data,
-            'success': True,
-            'message': f'Successfully extracted {len(cleaned_data)} parameters from {file.filename}',
-            'file_type': file_extension,
-            'file_size': file_size,
-            'processing_timestamp': datetime.now().isoformat()
+            'parameter': parameter,
+            'original_value': value,
+            'original_unit': from_unit,
+            'converted_value': converted_value,
+            'converted_unit': 'default',
+            'success': True
         })
         
     except Exception as e:
-        error_msg = f"Upload processing error: {str(e)}"
-        logger.error(error_msg)
-        logger.error(traceback.format_exc())
-        return jsonify({'error': error_msg, 'success': False}), 500
+        return jsonify({'error': f'Conversion failed: {str(e)}'}), 500
+
+@app.route('/api/validate', methods=['POST'])
+def validate_input():
+    """Validate input parameters without making a prediction"""
+    try:
+        data = request.json
+        if not data:
+            return jsonify({
+                'error': 'No data provided for validation',
+                'success': False
+            }), 400
+        
+        validation_result = validate_and_process_input(data)
+        
+        return jsonify({
+            'validation': validation_result,
+            'success': True,
+            'timestamp': datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"Validation error: {str(e)}")
+        return jsonify({
+            'error': 'Validation failed',
+            'success': False
+        }), 500
+
+
 
 @app.errorhandler(404)
 def not_found(error):

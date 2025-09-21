@@ -1,137 +1,39 @@
-import { useEffect, useRef } from 'react';
-import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
-import { Pie } from 'react-chartjs-2';
-
-ChartJS.register(ArcElement, Tooltip, Legend);
+﻿import React from 'react';
 
 const ResultsDisplay = ({ results }) => {
-  const chartRef = useRef(null);
-  
-  useEffect(() => {
-    // Force chart update when results change
-    if (chartRef.current) {
-      chartRef.current.update();
-    }
-  }, [results]);
-  
   if (!results || !results.top_predictions) {
     return null;
   }
-  
-  const { prediction, top_predictions, missing_parameters, note } = results;
-  
-  // Prepare chart data
-  const chartData = {
-    labels: top_predictions.map(p => p.disease),
-    datasets: [
-      {
-        data: top_predictions.map(p => p.probability * 100),
-        backgroundColor: [
-          'rgba(54, 162, 235, 0.6)',
-          'rgba(255, 99, 132, 0.6)',
-          'rgba(255, 206, 86, 0.6)',
-          'rgba(75, 192, 192, 0.6)',
-          'rgba(153, 102, 255, 0.6)',
-        ],
-        borderColor: [
-          'rgba(54, 162, 235, 1)',
-          'rgba(255, 99, 132, 1)',
-          'rgba(255, 206, 86, 1)',
-          'rgba(75, 192, 192, 1)',
-          'rgba(153, 102, 255, 1)',
-        ],
-        borderWidth: 1,
-      },
-    ],
-  };
-  
+
+  const { prediction, top_predictions, data_quality, analysis } = results;
+
   return (
-    <div className="bg-white p-6 rounded-lg shadow-md mt-6">
-      <h2 className="text-2xl font-bold mb-6 text-gray-800">Diagnosis Results</h2>
+    <div className="p-6 mt-8 bg-white rounded-lg shadow-lg">
+      <h2 className="mb-6 text-2xl font-bold text-gray-800">Diagnosis Results</h2>
       
+      <div className="p-4 mb-6 border-l-4 border-blue-500 rounded-lg bg-blue-50">
+        <h3 className="mb-2 text-lg font-semibold text-blue-800">Primary Diagnosis</h3>
+        <p className="text-xl font-bold text-blue-900">{prediction}</p>
+      </div>
+
       <div className="mb-6">
-        <h3 className="text-xl font-semibold mb-2 text-gray-700">Primary Diagnosis</h3>
-        <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-          <p className="text-2xl font-bold text-blue-700">{prediction}</p>
-          {note && (
-            <p className="text-sm text-gray-600 mt-2">{note}</p>
-          )}
+        <h3 className="mb-3 text-lg font-semibold text-gray-800">Confidence Scores</h3>
+        <div className="space-y-2">
+          {top_predictions.map((pred, index) => (
+            <div key={index} className="flex items-center justify-between p-3 rounded bg-gray-50">
+              <span className="font-medium text-gray-700">{pred.disease}</span>
+              <span className="text-sm font-semibold text-blue-600">
+                {(pred.probability * 100).toFixed(1)}%
+              </span>
+            </div>
+          ))}
         </div>
       </div>
-      
-      {missing_parameters && missing_parameters.length > 0 && (
-        <div className="mb-6">
-          <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
-            <h4 className="font-semibold text-yellow-800 mb-2">Missing Parameters</h4>
-            <p className="text-sm text-yellow-700">
-              The following parameters were not found in the uploaded file and default values were used:
-            </p>
-            <div className="flex flex-wrap gap-2 mt-2">
-              {missing_parameters.map((param, index) => (
-                <span key={index} className="bg-yellow-200 text-yellow-800 px-2 py-1 rounded text-xs">
-                  {param}
-                </span>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <h3 className="text-xl font-semibold mb-4 text-gray-700">Probability Distribution</h3>
-          <div className="h-64">
-            <Pie 
-              ref={chartRef}
-              data={chartData} 
-              options={{
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                  legend: {
-                    position: 'bottom',
-                  },
-                  tooltip: {
-                    callbacks: {
-                      label: function(context) {
-                        return `${context.label}: ${context.raw.toFixed(2)}%`;
-                      }
-                    }
-                  }
-                }
-              }}
-            />
-          </div>
-        </div>
-        
-        <div>
-          <h3 className="text-xl font-semibold mb-4 text-gray-700">Top Predictions</h3>
-          <div className="space-y-3">
-            {top_predictions.map((pred, index) => (
-              <div 
-                key={index} 
-                className={`p-3 rounded-lg ${
-                  pred.disease === prediction 
-                    ? 'bg-blue-50 border border-blue-200' 
-                    : 'bg-gray-50 border border-gray-200'
-                }`}
-              >
-                <div className="flex justify-between items-center">
-                  <span className="font-medium">{pred.disease}</span>
-                  <span className="font-bold">{(pred.probability * 100).toFixed(2)}%</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2.5 mt-2">
-                  <div 
-                    className={`h-2.5 rounded-full ${
-                      pred.disease === prediction ? 'bg-blue-600' : 'bg-gray-500'
-                    }`}
-                    style={{ width: `${pred.probability * 100}%` }}
-                  ></div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+
+      <div className="p-4 mt-6 border-l-4 border-red-400 bg-red-50">
+        <p className="text-sm text-red-700">
+          <strong>Disclaimer:</strong> This analysis is for educational purposes only.
+        </p>
       </div>
     </div>
   );

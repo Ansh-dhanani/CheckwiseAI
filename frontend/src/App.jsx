@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import DiagnosisForm from './components/DiagnosisForm'
 import ResultsDisplay from './components/ResultsDisplay'
-import './App.css'
 
 function App() {
   const [results, setResults] = useState(null);
@@ -12,7 +11,10 @@ function App() {
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">CheckWise - CBC Analysis</h1>
           <p className="text-xl text-gray-600">
-            Enter your Complete Blood Count (CBC) test results to get a disease prediction
+            Manual CBC parameter input for AI-powered disease prediction analysis
+          </p>
+          <p className="text-sm text-gray-500 mt-2">
+            Simplified interface - No file uploads required
           </p>
         </div>
         
