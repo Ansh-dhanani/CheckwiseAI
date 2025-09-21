@@ -1,0 +1,81 @@
+# ===================================
+# NETLIFY CONFIGURATION SETUP
+# ===================================
+
+## Required Environment Variables (Netlify Dashboard)
+## Go to: Site Settings > Environment Variables > Add New
+
+VITE_API_URL=https://diagnosisai.onrender.com
+
+## Build Settings (Netlify Dashboard)
+## Go to: Site Settings > Build & Deploy > Build Settings
+
+Base directory: frontend
+Build command: npm run build
+Publish directory: frontend/dist
+Node.js version: 18
+
+# ===================================
+# RENDER CONFIGURATION SETUP
+# ===================================
+
+## Required Environment Variables (Render Dashboard)
+## Go to: Service Settings > Environment
+
+PYTHON_VERSION=3.9.19
+FLASK_ENV=production
+FLASK_APP=backend.api
+
+## Service Settings (Render Dashboard)
+## Go to: Service Settings > Settings
+
+Name: diagnosisai (or your preferred name)
+Environment: Python 3
+Build Command: pip install -r requirements.txt
+Start Command: gunicorn main:app
+Instance Type: Free (or paid for better performance)
+Health Check Path: /api/health
+Auto-Deploy: Yes
+
+# ===================================
+# DEPLOYMENT VERIFICATION URLS
+# ===================================
+
+Frontend URL: https://check-wise.netlify.app
+Backend URL: https://diagnosisai.onrender.com
+Health Check: https://diagnosisai.onrender.com/api/health
+API Docs: https://diagnosisai.onrender.com/api/parameters
+
+# ===================================
+# CRITICAL FILES CHECKLIST
+# ===================================
+
+✅ main.py (root directory - Render entry point)
+✅ requirements.txt (root directory - exact versions)
+✅ render.yaml (root directory - optional but recommended)
+✅ cbc_disease_model.joblib (root directory)
+✅ disease_label_encoder.joblib (root directory)
+✅ backend/api.py (Flask application)
+✅ backend/cbc_disease_model.joblib (backup)
+✅ backend/disease_label_encoder.joblib (backup)
+✅ frontend/netlify.toml (Netlify configuration)
+✅ frontend/package.json (Node.js dependencies)
+✅ frontend/vite.config.js (Vite configuration)
+
+# ===================================
+# TROUBLESHOOTING COMMANDS
+# ===================================
+
+# Check deployment status
+curl https://diagnosisai.onrender.com/api/health
+
+# Test prediction locally
+cd CheckwiseAI
+python -m backend.api
+
+# Check frontend build
+cd frontend
+npm run build
+
+# Verify all files exist
+ls -la cbc_disease_model.joblib disease_label_encoder.joblib main.py requirements.txt
