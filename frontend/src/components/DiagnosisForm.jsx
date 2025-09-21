@@ -147,26 +147,35 @@ const DiagnosisForm = ({ onResult }) => {
   };
   
   return (
-    <div className="bg-white p-6 rounded-lg shadow-md">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-gray-800">CBC Parameters Input</h2>
-        <div className="space-x-2">
-          <button
-            type="button"
-            onClick={loadSampleData}
-            className="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 text-sm"
-          >
-            Load Sample
-          </button>
-          <button
-            type="button"
-            onClick={clearForm}
-            className="bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600 text-sm"
-          >
-            Clear All
-          </button>
+    <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
+      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-8 py-6">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center">
+          <div className="mb-4 sm:mb-0">
+            <h2 className="text-2xl font-bold text-white mb-2">CBC Parameters Input</h2>
+            <p className="text-blue-100 text-sm">Enter your Complete Blood Count test results with automatic unit conversion</p>
+          </div>
+          <div className="flex space-x-2">
+            <button
+              type="button"
+              onClick={loadSampleData}
+              className="bg-white bg-opacity-20 hover:bg-opacity-30 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center"
+            >
+              Load Sample
+            </button>
+            <button
+              type="button"
+              onClick={clearForm}
+              className="bg-white bg-opacity-20 hover:bg-opacity-30 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center"
+            >
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              Clear All
+            </button>
+          </div>
         </div>
       </div>
+      <div className="p-8">
       
       {/* Instructions */}
       <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
@@ -329,6 +338,7 @@ const DiagnosisForm = ({ onResult }) => {
           </button>
         </div>
       </form>
+      </div>
     </div>
   );
 };
