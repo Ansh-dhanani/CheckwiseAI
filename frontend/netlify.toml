@@ -4,6 +4,7 @@
 
 [build.environment]
   NODE_VERSION = "18"
+  VITE_API_URL = "https://checkwise-ai.onrender.com"
 
 [[redirects]]
   from = "/*"
