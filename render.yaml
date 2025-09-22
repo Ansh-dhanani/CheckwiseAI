@@ -4,12 +4,10 @@ services:
     env: python
     plan: free
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn main:app
+    startCommand: gunicorn main:application --bind 0.0.0.0:$PORT --workers 1 --timeout 60
     envVars:
       - key: PYTHON_VERSION
         value: "3.9.19"
       - key: FLASK_ENV
         value: production
-      - key: FLASK_APP
-        value: backend.api
     healthCheckPath: /api/health
