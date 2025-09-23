@@ -12,7 +12,11 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Add backend directory to Python path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'backend'))
+backend_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'backend')
+sys.path.insert(0, backend_path)
+
+# Set working directory to backend for model file access
+os.chdir(backend_path)
 
 try:
     # Import the Flask application
@@ -20,6 +24,8 @@ try:
     logger.info("Flask app imported successfully")
 except ImportError as e:
     logger.error(f"Failed to import Flask app: {e}")
+    logger.error(f"Backend path: {backend_path}")
+    logger.error(f"Python path: {sys.path}")
     raise
 
 # WSGI entry point for deployment platforms
