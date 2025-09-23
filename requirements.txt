@@ -1,8 +1,8 @@
 flask==2.3.3
 flask-cors==4.0.0
 werkzeug==2.3.7
-scikit-learn==1.2.0
-pandas==1.5.3
-joblib==1.2.0
-numpy==1.24.0
+scikit-learn==1.5.2
+pandas==2.2.3
+joblib==1.4.2
+numpy==1.26.4
 gunicorn==21.2.0
